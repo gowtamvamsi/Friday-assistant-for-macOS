@@ -1,0 +1,35 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+venv/
+ENV/
+env/
+
+# Credentials and secrets
+credentials.json
+token.json
+*.key
+*.pem
+
+# Project logs
+*.log
+friday.log
+
+# macOS System Files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Application scratch data / outputs
+scratch/
+audio/scratch/
+data/me.jpg
+
+# Python cache / HuggingFace caches if stored locally
+.cache/
+.pytest_cache/
