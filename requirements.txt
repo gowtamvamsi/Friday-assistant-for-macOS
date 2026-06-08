@@ -1,0 +1,26 @@
+# Core MLX, LLM, and TTS
+mlx==0.31.2
+mlx-lm==0.31.3
+kokoro-mlx==0.1.2
+
+# Acoustic Pipeline (Audio recording, STT, and Wake Word)
+PyAudio==0.2.14
+pvporcupine==4.0.2
+openai-whisper==20250625
+
+# Desktop Interface (PyQt5 and Sockets)
+PyQt5==5.15.11
+python-dotenv==1.2.2
+
+# Biometric Security Layer (Facetrack and webcam)
+face-recognition==1.3.0
+opencv-python==4.13.0.92
+
+# Advanced Automation & Workflows
+youtube-transcript-api==1.2.4
+yt-dlp==2026.3.17
+qrcode==8.2
+requests==2.34.2
+google-api-python-client==2.197.0
+google-auth-oauthlib==1.4.0
+google-auth-httplib2==0.4.0
