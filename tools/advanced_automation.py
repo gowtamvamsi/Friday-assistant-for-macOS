@@ -562,3 +562,159 @@ def dead_drop(file_path: str) -> Dict[str, Any]:
     except Exception as e:
         logger.exception("Dead Drop failed.")
         return {"status": "error", "message": f"Dead Drop failed: {e}"}
+
+
+def _resolve_path(path: str) -> str:
+    """Resolves standard directories like 'Desktop', expands '~' or aliases."""
+    clean = path.strip().lower().rstrip("/")
+    
+    # Common user directories
+    aliases = {
+        "downloads":  os.path.expanduser("~/Downloads"),
+        "download":   os.path.expanduser("~/Downloads"),
+        "desktop":    os.path.expanduser("~/Desktop"),
+        "documents":  os.path.expanduser("~/Documents"),
+        "document":   os.path.expanduser("~/Documents"),
+        "home":       os.path.expanduser("~"),
+        "~":          os.path.expanduser("~"),
+    }
+    
+    if clean in aliases:
+        return aliases[clean]
+        
+    # Expand ~
+    expanded = os.path.expanduser(path)
+    if os.path.isabs(expanded):
+        return expanded
+        
+    # If relative, try matching inside Home, Desktop, or Downloads
+    candidate_desktop = os.path.join(os.path.expanduser("~/Desktop"), path)
+    if os.path.exists(candidate_desktop):
+        return candidate_desktop
+        
+    candidate_downloads = os.path.join(os.path.expanduser("~/Downloads"), path)
+    if os.path.exists(candidate_downloads):
+        return candidate_downloads
+        
+    return os.path.abspath(expanded)
+
+
+@register_tool
+def generate_feasibility_report(directory_path: str, budget: str) -> Dict[str, Any]:
+    """
+    Parses all documents in a directory and generates a project feasibility analysis within a budget limit.
+
+    Args:
+        directory_path (str): The folder containing project files (e.g. 'Desktop/Alpha Project').
+        budget (str): The budget constraint (e.g. '$50,000' or '50000').
+
+    Returns:
+        dict: A status dictionary containing 'status' and a 'message' describing completion or error.
+    """
+    resolved_dir = _resolve_path(directory_path)
+
+    if not os.path.isdir(resolved_dir):
+        return {
+            "status": "error",
+            "message": f"Directory not found: '{directory_path}'. Resolved path: '{resolved_dir}'"
+        }
+
+    try:
+        from pathlib import Path
+        path_obj = Path(resolved_dir)
+        extracted_contents = []
+        supported_extensions = {".txt", ".md", ".csv", ".json", ".xml", ".yaml", ".yml"}
+        file_count = 0
+
+        for file_path in path_obj.rglob("*"):
+            # Skip hidden files/directories and folders
+            if file_path.name.startswith(".") or not file_path.is_file():
+                continue
+
+            ext = file_path.suffix.lower()
+            if ext in supported_extensions:
+                try:
+                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                        # Read up to 15KB per file to prevent context explosion
+                        content = f.read(15000)
+                        extracted_contents.append(
+                            f"=== File: {file_path.relative_to(path_obj)} ===\n{content}\n"
+                        )
+                        file_count += 1
+                except Exception as e:
+                    logger.warning(f"Failed to read file {file_path}: {e}")
+            elif ext == ".pdf":
+                try:
+                    import pypdf
+                    reader = pypdf.PdfReader(file_path)
+                    pdf_text = []
+                    # Read up to 10 pages
+                    for page in reader.pages[:10]:
+                        pdf_text.append(page.extract_text() or "")
+                    content = "\n".join(pdf_text)
+                    extracted_contents.append(
+                        f"=== File: {file_path.relative_to(path_obj)} ===\n{content}\n"
+                    )
+                    file_count += 1
+                except ImportError:
+                    try:
+                        import PyPDF2
+                        reader = PyPDF2.PdfReader(file_path)
+                        pdf_text = []
+                        for page in reader.pages[:10]:
+                            pdf_text.append(page.extract_text() or "")
+                        content = "\n".join(pdf_text)
+                        extracted_contents.append(
+                            f"=== File: {file_path.relative_to(path_obj)} ===\n{content}\n"
+                        )
+                        file_count += 1
+                    except ImportError:
+                        logger.warning(f"Skipping PDF file '{file_path}' (pip install pypdf for PDF support).")
+                except Exception as e:
+                    logger.warning(f"Failed to parse PDF {file_path}: {e}")
+
+        if not extracted_contents:
+            return {
+                "status": "error",
+                "message": f"No readable project files found in directory: '{resolved_dir}'"
+            }
+
+        # Combine text and enforce context window limit (~50KB / ~10K tokens)
+        total_text = "\n".join(extracted_contents)
+        if len(total_text) > 50000:
+            total_text = total_text[:50000] + "\n\n... [TRUNCATED FOR CONTEXT LIMITS] ..."
+
+        logger.info(f"Ingested {file_count} files from '{resolved_dir}'. Running LLM feasibility analysis...")
+
+        # Formulate LLM prompts
+        system_prompt = (
+            "You are a financial and project analyst. Review the following project files. "
+            f"The total budget constraint is {budget}. Determine if the project is feasible, "
+            "highlight potential cost overruns, and provide a summary of expenses. "
+            "Output the response strictly in Markdown format."
+        )
+        prompt = (
+            "Project files data:\n\n"
+            f"{total_text}\n\n"
+            "Please generate a detailed feasibility report based on this data."
+        )
+
+        # Generate report
+        report_content = _llm_generate(prompt=prompt, system=system_prompt, max_tokens=2500)
+
+        # Save to Desktop
+        desktop_report_path = os.path.expanduser("~/Desktop/Project_Feasibility_Report.md")
+        with open(desktop_report_path, "w", encoding="utf-8") as f:
+            f.write(report_content)
+
+        logger.info(f"Project Feasibility Report written to Desktop for directory: {directory_path}")
+
+        return {
+            "status": "success",
+            "message": f"Feasibility report generated from {file_count} files and saved to your Desktop as 'Project_Feasibility_Report.md'."
+        }
+
+    except Exception as e:
+        logger.exception("Directory Analyst failed.")
+        return {"status": "error", "message": f"Directory Analyst feasibility analysis failed: {e}"}
+

@@ -155,6 +155,10 @@ class Orchestrator:
         "morning_briefing":     "trigger_morning_digest",
         "get_morning_digest":   "trigger_morning_digest",
         "read_briefing":        "trigger_morning_digest",
+        # Directory Analyst
+        "directory_analyst":    "generate_feasibility_report",
+        "feasibility_report":   "generate_feasibility_report",
+        "project_feasibility":  "generate_feasibility_report",
     }
 
     def __init__(self, runtime: MLXRuntime, registry: "ToolRegistry", max_steps: int = 5):
@@ -184,7 +188,7 @@ class Orchestrator:
             if re.search(pattern, q):
                 return True
         action_keywords = [
-            "open", "launch", "close", "quit", "exit", "volume", "mute", "unmute", "app", "file", "list", "show", "build", "digest", "briefing"
+            "open", "launch", "close", "quit", "exit", "volume", "mute", "unmute", "app", "file", "list", "show", "build", "digest", "briefing", "report", "feasibility", "budget", "analyst"
         ]
         if not any(kw in q for kw in action_keywords):
             return True
