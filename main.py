@@ -566,11 +566,34 @@ class SentenceAccumulator:
         self.buffer += token
         while True:
             idx = -1
+            found_delim = None
+            
             for d in self.delimiters:
                 pos = self.buffer.find(d)
                 if pos != -1:
+                    # Special check for period '.'
+                    if d == '.':
+                        current_pos = pos
+                        while current_pos != -1:
+                            if current_pos + 1 < len(self.buffer):
+                                next_char = self.buffer[current_pos + 1]
+                                if next_char.isspace():
+                                    pos = current_pos
+                                    break
+                                else:
+                                    # Skip this period (it might be part of an extension like .pdf or a decimal like 1.5)
+                                    current_pos = self.buffer.find('.', current_pos + 1)
+                            else:
+                                # Period is at the very end of our current buffer.
+                                # Since we are streaming, wait for more tokens to arrive
+                                pos = -1
+                                break
+                        if pos == -1:
+                            continue
+                            
                     if idx == -1 or pos < idx:
                         idx = pos
+                        found_delim = d
             
             if idx == -1:
                 break
@@ -663,7 +686,7 @@ def tts_worker_thread_fn():
             if tts_sentence_queue.empty():
                 start_wait = time.time()
                 while audio_player.is_speaking():
-                    if time.time() - start_wait > 6.0:
+                    if time.time() - start_wait > 60.0:
                         logger.warning("TTS Worker: speaking loop timeout reached. Stopping player.")
                         audio_player.stop()
                         break
@@ -841,7 +864,7 @@ def run_voice_loop(model_id: str, runtime: MLXRuntime, orchestrator: Orchestrato
                 import time
                 start_wait = time.time()
                 while audio_player.is_speaking():
-                    if time.time() - start_wait > 6.0:
+                    if time.time() - start_wait > 60.0:
                         logger.warning("Main Thread: speaking loop timeout reached. Stopping player.")
                         audio_player.stop()
                         break
@@ -887,7 +910,7 @@ def run_voice_loop(model_id: str, runtime: MLXRuntime, orchestrator: Orchestrato
                 import time
                 start_wait = time.time()
                 while audio_player.is_speaking():
-                    if time.time() - start_wait > 6.0:
+                    if time.time() - start_wait > 60.0:
                         logger.warning("Main Thread: speaking loop timeout reached. Stopping player.")
                         audio_player.stop()
                         break
