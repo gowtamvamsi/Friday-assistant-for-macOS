@@ -169,14 +169,15 @@ def open_file(file_path: str) -> Dict[str, Any]:
 @register_tool
 def list_directory(directory: str = "Downloads") -> Dict[str, Any]:
     """
-    Lists the most recent files in a directory, sorted by modification time (newest first).
+    Lists files in a directory, collects distinct file types (extensions) with counts,
+    and returns them along with the most recent items.
 
     Args:
         directory (str): Directory to list. Accepts 'Downloads', 'Desktop', 'Documents',
                          'Pictures', or any absolute path.
 
     Returns:
-        dict: Status, message, and list of file names with their sizes and dates.
+        dict: Status, message, and list of files with their details and extension counts.
     """
     resolved_dir = _resolve_directory(directory)
 
@@ -188,16 +189,40 @@ def list_directory(directory: str = "Downloads") -> Dict[str, Any]:
 
     try:
         import datetime
+        from collections import Counter
+
         entries = []
+        extension_counts = Counter()
+        folder_count = 0
+        file_count = 0
+
         for name in os.listdir(resolved_dir):
             if name.startswith("."):
                 continue
             full_path = os.path.join(resolved_dir, name)
-            mtime = os.path.getmtime(full_path)
-            size_bytes = os.path.getsize(full_path) if os.path.isfile(full_path) else 0
-            is_dir = os.path.isdir(full_path)
-            entries.append((mtime, name, size_bytes, is_dir))
+            try:
+                is_dir = os.path.isdir(full_path)
+                mtime = os.path.getmtime(full_path)
 
+                if is_dir:
+                    folder_count += 1
+                    size_bytes = 0
+                else:
+                    file_count += 1
+                    size_bytes = os.path.getsize(full_path)
+                    # Get file extension
+                    _, ext = os.path.splitext(name)
+                    ext = ext.lower().strip()
+                    if ext:
+                        extension_counts[ext] += 1
+                    else:
+                        extension_counts["(no extension)"] += 1
+
+                entries.append((mtime, name, size_bytes, is_dir))
+            except Exception:
+                continue
+
+        # Sort by modification time, newest first
         entries.sort(reverse=True)
         top = entries[:15]  # Return top 15 most recent
 
@@ -215,14 +240,27 @@ def list_directory(directory: str = "Downloads") -> Dict[str, Any]:
                     size_str = f"{size/(1024*1024):.1f} MB"
                 file_list.append(f"{name} ({size_str}, {modified})")
 
-        summary = f"Found {len(entries)} items in {directory}. Most recent: " + ", ".join(
-            n.split(" (")[0] for _, n, _, _ in top[:5]
+        # Format extension counts
+        most_common_extensions = [f"{ext} ({count})" for ext, count in extension_counts.most_common(8)]
+        ext_summary = ", ".join(most_common_extensions) if most_common_extensions else "none"
+
+        summary = (
+            f"Found {len(entries)} items in {directory} ({file_count} files, {folder_count} folders). "
+            f"Top file types: {ext_summary}. "
+            f"Most recent: " + ", ".join(n.split(" (")[0] for _, n, _, _ in top[:5])
         )
 
         return {
             "status": "success",
             "message": summary,
-            "data": {"files": file_list, "directory": resolved_dir}
+            "data": {
+                "files": file_list,
+                "directory": resolved_dir,
+                "total_items": len(entries),
+                "file_count": file_count,
+                "folder_count": folder_count,
+                "file_types": dict(extension_counts)
+            }
         }
 
     except Exception as e:
