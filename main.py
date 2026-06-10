@@ -914,10 +914,16 @@ def main():
         action="store_true",
         help="Run Friday in text-only interactive console mode"
     )
+    parser.add_argument(
+        "--model", "-m",
+        type=str,
+        default=os.environ.get("FRIDAY_MODEL", "mlx-community/gemma-3-12b-it-4bit"),
+        help="The local MLX model ID to run (e.g. mlx-community/gemma-3-12b-it-4bit)"
+    )
     args = parser.parse_args()
 
     # Load configuration
-    model_id = os.environ.get("FRIDAY_MODEL", "mlx-community/gemma-3-12b-it-4bit")
+    model_id = args.model
     
     # Initialize runtime and orchestrator
     runtime = MLXRuntime(model_id=model_id)

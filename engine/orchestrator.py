@@ -57,19 +57,28 @@ Observation: SUCCESS — Opened 'report.pdf' from Downloads (last modified Jun 0
 Thought: The file has been opened successfully. I am done.
 Answer: Done.
 
-Example 6 (Listing directory):
+Example 6 (Listing directory - Question/Query):
 User: Show me my documents
 Thought: The user wants to see the files in their Documents folder. I will use the list_directory tool.
 Action: {{"name": "list_directory", "arguments": {{"directory": "Documents"}}}}
 Observation: SUCCESS — Found 12 items in Documents. Most recent: letter.docx, resume.pdf, sheet.xlsx, prep.py, notes.txt
-Thought: I have listed the directory contents. I am done.
-Answer: Done.
+Thought: The user asked to see their documents. I will organize the files list from the observation and answer their question.
+Answer: Here are the most recent files in your Documents directory: letter.docx, resume.pdf, sheet.xlsx, prep.py, and notes.txt.
+
+Example 7 (Getting system status - Question/Query):
+User: Is the volume muted?
+Thought: The user wants to know if the system volume is muted. I will use the get_volume_status tool.
+Action: {{"name": "get_volume_status", "arguments": {{}}}}
+Observation: SUCCESS — System volume is 50% (state: active).
+Thought: I have the volume status. I will answer the user's question.
+Answer: No, the volume is not muted. It is currently set to 50%.
 
 CRITICAL RULES:
 - ONLY use the exact parameter names listed in the tool's schema. Never invent new parameters.
 - If a tool has NO parameters, use an empty arguments dict: {{"arguments": {{}}}}
 - After you output the Action block, STOP generating immediately.
-- Do NOT loop. Once a tool has succeeded, output the Answer: Done. block immediately.
+- For commands/actions (e.g. "open Safari", "mute volume", "build project"), once the tool has succeeded, output the `Answer: Done.` block immediately.
+- For questions/information queries (e.g. "what files are in my downloads?", "what is the volume level?", "list files"), use the tool's observation results to organize and write a helpful summary response in the `Answer:` block.
 
 Available tools and their JSON schemas:
 {tools_schemas}
